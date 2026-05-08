@@ -6,6 +6,7 @@
     <title>RCS-V8 | 全场景移动机器人集群调度系统</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
     <style>
         :root {
             --bg-color: #050b14;
@@ -22,7 +23,6 @@
             overflow-x: hidden;
         }
 
-        /* 霓虹背景装饰 */
         .neon-glow {
             position: absolute;
             width: 400px;
@@ -32,7 +32,6 @@
             z-index: -1;
         }
 
-        /* 仿截图中的拓扑线条背景 */
         .grid-bg {
             background-image: linear-gradient(rgba(54, 228, 218, 0.05) 1px, transparent 1px),
                               linear-gradient(90deg, rgba(54, 228, 218, 0.05) 1px, transparent 1px);
@@ -72,141 +71,164 @@
             box-shadow: 0 0 8px var(--accent-cyan);
         }
 
-        /* 模拟截图右侧任务面板的线条 */
         .task-border {
             border-left: 2px solid var(--accent-cyan);
         }
     </style>
 </head>
+
 <body class="grid-bg">
 
-    <nav class="flex justify-between items-center px-10 py-6 sticky top-0 z-50 glass-card border-none">
-        <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 bg-cyan-500 rounded-sm flex items-center justify-center font-bold text-black">R</div>
-            <span class="text-xl font-bold tracking-widest text-cyan-400">RCS-V8</span>
-        </div>
-        <div class="hidden md:flex space-x-10 text-sm font-medium tracking-wide">
-            <a href="architecture.html" class="hover:text-cyan-400">产品架构</a>
-            <a href="algorithm.html" class="hover:text-cyan-400">调度算法</a>
-        </div>
-        <a href="rcs-v8-demo.html" class="btn-primary px-6 py-2 rounded-full text-xs uppercase tracking-tighter inline-block text-center">预约演示</a>
-    </nav>
+<!-- NAV -->
+<nav class="flex justify-between items-center px-10 py-6 sticky top-0 z-50 glass-card border-none">
+    <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 bg-cyan-500 rounded-sm flex items-center justify-center font-bold text-black">R</div>
+        <span class="text-xl font-bold tracking-widest text-cyan-400">RCS-V8</span>
+    </div>
+    <div class="hidden md:flex space-x-10 text-sm font-medium tracking-wide">
+        <a href="architecture.html" class="hover:text-cyan-400">产品架构</a>
+        <a href="algorithm.html" class="hover:text-cyan-400">调度算法</a>
+    </div>
+    <a href="rcs-v8-demo.html" class="btn-primary px-6 py-2 rounded-full text-xs uppercase tracking-tighter inline-block text-center">预约演示</a>
+</nav>
 
-    <section class="relative pt-24 pb-32 px-10 max-w-7xl mx-auto">
-        <div class="neon-glow top-0 -left-20"></div>
-        <div class="max-w-3xl">
-            <h2 class="text-cyan-500 font-mono mb-4 tracking-widest">NEXT-GEN ROBOT CONTROL SYSTEM</h2>
-            <h1 class="text-6xl font-bold leading-tight mb-6">
-                定义工业物流的<br><span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">智慧大脑</span>
-            </h1>
-            <p class="text-slate-400 text-lg mb-10 max-w-xl leading-relaxed">
-                RCS-V8 是一款面向全场景移动机器人的集群调度系统。通过毫秒级路径规划与动态感知技术，实现千台级 AMR 的无感协同。
+<!-- HERO -->
+<section class="relative pt-24 pb-32 px-10 max-w-7xl mx-auto">
+    <div class="neon-glow top-0 -left-20"></div>
+
+    <div class="max-w-3xl">
+        <h2 class="text-cyan-500 font-mono mb-4 tracking-widest">NEXT-GEN ROBOT CONTROL SYSTEM</h2>
+
+        <!-- 仅手机缩小 -->
+        <h1 class="text-6xl max-sm:text-3xl font-bold leading-tight mb-6">
+            定义工业物流的<br>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
+                智慧大脑
+            </span>
+        </h1>
+
+        <p class="text-slate-400 text-lg mb-10 max-w-xl leading-relaxed">
+            RCS-V8 是一款面向全场景移动机器人的集群调度系统。通过毫秒级路径规划与动态感知技术，实现千台级 AMR 的无感协同。
+        </p>
+
+        <!-- 不破坏间距 -->
+        <div class="flex space-x-4 max-sm:flex-wrap">
+            <div class="glass-card px-8 py-4 rounded-lg">
+                <div class="text-3xl font-bold">1000+</div>
+                <div class="text-xs text-slate-500 uppercase tracking-widest mt-1">单集群载荷</div>
+            </div>
+            <div class="glass-card px-8 py-4 rounded-lg">
+                <div class="text-3xl font-bold">&lt;50ms</div>
+                <div class="text-xs text-slate-500 uppercase tracking-widest mt-1">指令时延</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- PANEL -->
+<section class="px-10 pb-32">
+    <div class="max-w-7xl mx-auto">
+
+        <div class="glass-card p-4 rounded-xl shadow-2xl relative overflow-hidden">
+
+            <div class="flex justify-between items-center mb-4 px-2">
+                <div class="flex space-x-6 text-[10px] text-cyan-400 font-mono">
+                    <span>ONLINE: 3</span>
+                    <span>MOVING: 3</span>
+                    <span>TASKS: 3</span>
+                    <span class="text-red-500">ERRORS: 0</span>
+                </div>
+                <div class="text-[10px] font-mono">2026-05-07 23:09:13</div>
+            </div>
+
+            <!-- 关键：只手机变 -->
+            <div class="grid grid-cols-12 max-sm:grid-cols-1 gap-4">
+
+                <div class="col-span-3 max-sm:col-span-12 space-y-3">
+                    <div class="p-3 bg-slate-900/50 border-l-2 border-cyan-400">
+                        <div class="flex justify-between text-[10px] mb-2">
+                            <span>AMR-001</span>
+                            <span class="text-cyan-400">移动中</span>
+                        </div>
+                        <div class="h-1 bg-slate-800 w-full rounded-full">
+                            <div class="h-1 bg-cyan-400 w-1/4"></div>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-900/50 border-l-2 border-yellow-400">
+                        <div class="flex justify-between text-[10px] mb-2">
+                            <span>AMR-002</span>
+                            <span class="text-yellow-400">等待中</span>
+                        </div>
+                        <div class="h-1 bg-slate-800 w-full rounded-full">
+                            <div class="h-1 bg-yellow-400 w-full"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-span-6 max-sm:col-span-12 bg-slate-900/30 rounded border border-slate-800 h-64 relative flex items-center justify-center">
+                    <div class="absolute inset-0 opacity-20 grid-bg"></div>
+                    <div class="text-cyan-400/50 animate-pulse font-mono text-sm">REAL-TIME TOPOLOGY ACTIVE</div>
+                    <div class="absolute top-10 left-20 w-4 h-4 glass-card rounded-full border-cyan-400"></div>
+                    <div class="absolute bottom-20 right-32 w-4 h-4 glass-card rounded-full border-cyan-400"></div>
+                    <svg class="absolute inset-0 w-full h-full">
+                        <line x1="20%" y1="20%" x2="70%" y2="70%" stroke="#36e4da" stroke-width="1" stroke-dasharray="4" opacity="0.3" />
+                    </svg>
+                </div>
+
+                <div class="col-span-3 max-sm:col-span-12">
+                    <div class="text-[10px] mb-3 text-slate-500 font-mono">TASKS QUEUE</div>
+                    <div class="space-y-2">
+                        <div class="text-[9px] p-2 border border-slate-800 rounded bg-black/20">
+                            <div class="text-cyan-400 mb-1">T844 - NORMAL</div>
+                            <div class="text-slate-400 font-mono">AMR-003: [D1] -> [F2]</div>
+                        </div>
+                        <div class="text-[9px] p-2 border border-slate-800 rounded bg-black/20">
+                            <div class="text-orange-500 mb-1">T841 - URGENT</div>
+                            <div class="text-slate-400 font-mono">AMR-001: [C1] -> [B1]</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <p class="text-center mt-6 text-slate-500 text-sm">↑ 基于实际 RCS-V8 业务逻辑的数字化孪生界面</p>
+    </div>
+</section>
+
+<!-- FEATURES -->
+<section class="bg-black/40 py-32 px-10">
+    <div class="max-w-7xl mx-auto grid grid-cols-3 max-sm:grid-cols-1 gap-12">
+        <div class="space-y-4">
+            <h3 class="text-xl font-semibold text-cyan-400 tracking-wide">全地图数字化建模</h3>
+            <p class="text-slate-400 text-sm leading-loose">
+                支持多区域、跨楼层拓扑建模。涵盖入库区(Inbound)、存储区(Storage)、分拣区(Sorting)及出库区(Outbound)的全链路节点管理。
             </p>
-            <div class="flex space-x-4">
-                <div class="glass-card px-8 py-4 rounded-lg">
-                    <div class="text-3xl font-bold">1000+</div>
-                    <div class="text-xs text-slate-500 uppercase tracking-widest mt-1">单集群载荷</div>
-                </div>
-                <div class="glass-card px-8 py-4 rounded-lg">
-                    <div class="text-3xl font-bold">&lt;50ms</div>
-                    <div class="text-xs text-slate-500 uppercase tracking-widest mt-1">指令时延</div>
-                </div>
-            </div>
         </div>
-    </section>
+        <div class="space-y-4">
+            <h3 class="text-xl font-semibold text-cyan-400 tracking-wide">动态动态冲突避让</h3>
+            <p class="text-slate-400 text-sm leading-loose">
+                自研 V-Graph 路径搜索算法，实时预计算机器人轨迹冲突，实现自动重规划与“零死锁”调度。
+            </p>
+        </div>
+        <div class="space-y-4">
+            <h3 class="text-xl font-semibold text-cyan-400 tracking-wide">全生命周期监测</h3>
+            <p class="text-slate-400 text-sm leading-loose">
+                实时监控 BAT 电量状态，联动 Charging 充电仓。完善的 Sys Log 系统支持每一条指令的毫秒级回溯。
+            </p>
+        </div>
+    </div>
+</section>
 
-    <section class="px-10 pb-32">
-        <div class="max-w-7xl mx-auto">
-            <div class="glass-card p-4 rounded-xl shadow-2xl relative overflow-hidden">
-                <div class="flex justify-between items-center mb-4 px-2">
-                    <div class="flex space-x-6 text-[10px] text-cyan-400 font-mono">
-                        <span>ONLINE: 3</span>
-                        <span>MOVING: 3</span>
-                        <span>TASKS: 3</span>
-                        <span class="text-red-500">ERRORS: 0</span>
-                    </div>
-                    <div class="text-[10px] font-mono">2026-05-07 23:09:13</div>
-                </div>
-                
-                <div class="grid grid-cols-12 gap-4">
-                    <div class="col-span-3 space-y-3">
-                        <div class="p-3 bg-slate-900/50 border-l-2 border-cyan-400">
-                            <div class="flex justify-between text-[10px] mb-2">
-                                <span>AMR-001</span>
-                                <span class="text-cyan-400">移动中</span>
-                            </div>
-                            <div class="h-1 bg-slate-800 w-full rounded-full">
-                                <div class="h-1 bg-cyan-400 w-1/4"></div>
-                            </div>
-                        </div>
-                        <div class="p-3 bg-slate-900/50 border-l-2 border-yellow-400">
-                            <div class="flex justify-between text-[10px] mb-2">
-                                <span>AMR-002</span>
-                                <span class="text-yellow-400">等待中</span>
-                            </div>
-                            <div class="h-1 bg-slate-800 w-full rounded-full">
-                                <div class="h-1 bg-yellow-400 w-full"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-span-6 bg-slate-900/30 rounded border border-slate-800 h-64 relative flex items-center justify-center">
-                        <div class="absolute inset-0 opacity-20 grid-bg"></div>
-                        <div class="text-cyan-400/50 animate-pulse font-mono text-sm">REAL-TIME TOPOLOGY ACTIVE</div>
-                        <div class="absolute top-10 left-20 w-4 h-4 glass-card rounded-full border-cyan-400"></div>
-                        <div class="absolute bottom-20 right-32 w-4 h-4 glass-card rounded-full border-cyan-400"></div>
-                        <svg class="absolute inset-0 w-full h-full">
-                            <line x1="20%" y1="20%" x2="70%" y2="70%" stroke="#36e4da" stroke-width="1" stroke-dasharray="4" opacity="0.3" />
-                        </svg>
-                    </div>
-                    <div class="col-span-3">
-                        <div class="text-[10px] mb-3 text-slate-500 font-mono">TASKS QUEUE</div>
-                        <div class="space-y-2">
-                            <div class="text-[9px] p-2 border border-slate-800 rounded bg-black/20">
-                                <div class="text-cyan-400 mb-1">T844 - NORMAL</div>
-                                <div class="text-slate-400 font-mono">AMR-003: [D1] -> [F2]</div>
-                            </div>
-                            <div class="text-[9px] p-2 border border-slate-800 rounded bg-black/20">
-                                <div class="text-orange-500 mb-1">T841 - URGENT</div>
-                                <div class="text-slate-400 font-mono">AMR-001: [C1] -> [B1]</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <p class="text-center mt-6 text-slate-500 text-sm">↑ 基于实际 RCS-V8 业务逻辑的数字化孪生界面</p>
-        </div>
-    </section>
-
-    <section class="bg-black/40 py-32 px-10">
-        <div class="max-w-7xl mx-auto grid md:grid-cols-3 gap-12">
-            <div class="space-y-4">
-                <h3 class="text-xl font-semibold text-cyan-400 tracking-wide">全地图数字化建模</h3>
-                <p class="text-slate-400 text-sm leading-loose">
-                    支持多区域、跨楼层拓扑建模。涵盖入库区(Inbound)、存储区(Storage)、分拣区(Sorting)及出库区(Outbound)的全链路节点管理。
-                </p>
-            </div>
-            <div class="space-y-4">
-                <h3 class="text-xl font-semibold text-cyan-400 tracking-wide">动态动态冲突避让</h3>
-                <p class="text-slate-400 text-sm leading-loose">
-                    自研 V-Graph 路径搜索算法，实时预计算机器人轨迹冲突，实现自动重规划与“零死锁”调度。
-                </p>
-            </div>
-            <div class="space-y-4">
-                <h3 class="text-xl font-semibold text-cyan-400 tracking-wide">全生命周期监测</h3>
-                <p class="text-slate-400 text-sm leading-loose">
-                    实时监控 BAT 电量状态，联动 Charging 充电仓。完善的 Sys Log 系统支持每一条指令的毫秒级回溯。
-                </p>
-            </div>
-        </div>
-    </section>
-
-    <footer class="py-20 px-10 border-t border-slate-800 text-center">
-        <div class="flex justify-center items-center space-x-3 mb-6">
-            <div class="w-6 h-6 bg-slate-700 rounded-sm flex items-center justify-center font-bold text-[10px]">R</div>
-            <span class="text-lg font-bold tracking-widest text-slate-400">RCS-V8</span>
-        </div>
-        <p class="text-slate-600 text-xs">© 2026 Robot Control Systems Inc. 高性能移动机器人调度专家</p>
-    </footer>
+<!-- FOOTER -->
+<footer class="py-20 px-10 border-t border-slate-800 text-center">
+    <div class="flex justify-center items-center space-x-3 mb-6">
+        <div class="w-6 h-6 bg-slate-700 rounded-sm flex items-center justify-center font-bold text-[10px]">R</div>
+        <span class="text-lg font-bold tracking-widest text-slate-400">RCS-V8</span>
+    </div>
+    <p class="text-slate-600 text-xs">© 2026 Robot Control Systems Inc. 高性能移动机器人调度专家</p>
+</footer>
 
 </body>
 </html>
