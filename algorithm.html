@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>核心调度算法 | RCS-V8</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050b14;
+            --panel-bg: rgba(16, 24, 39, 0.8);
+            --accent-cyan: #36e4da;
+            --accent-yellow: #f9d423;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: white;
+            font-family: 'Inter', -apple-system, sans-serif;
+            overflow-x: hidden;
+        }
+        .neon-glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(54, 228, 218, 0.08) 0%, rgba(5, 11, 20, 0) 70%);
+            border-radius: 50%;
+            z-index: -1;
+        }
+        .grid-bg {
+            background-image: linear-gradient(rgba(54, 228, 218, 0.05) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(54, 228, 218, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        .glass-card {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(54, 228, 218, 0.2);
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 20px rgba(54, 228, 218, 0.1);
+        }
+        .btn-primary {
+            background: var(--accent-cyan);
+            color: #050b14;
+            font-weight: 600;
+        }
+        
+        /* 模拟节点的样式 */
+        .node {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-cyan);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-family: monospace;
+            background: rgba(54, 228, 218, 0.1);
+            position: relative;
+        }
+        .path-line {
+            height: 2px;
+            background: rgba(54, 228, 218, 0.4);
+            flex-grow: 1;
+            margin: 0 5px;
+            position: relative;
+        }
+        .path-active {
+            background: var(--accent-cyan);
+            box-shadow: 0 0 5px var(--accent-cyan);
+        }
+    </style>
+</head>
+<body class="grid-bg">
+
+    <nav class="flex justify-between items-center px-10 py-6 sticky top-0 z-50 glass-card border-none">
+        <a href="RCS-V8.html" class="flex items-center space-x-3 group">
+            <div class="w-8 h-8 bg-cyan-500 rounded-sm flex items-center justify-center font-bold text-black transition group-hover:shadow-[0_0_10px_#36e4da]">R</div>
+            <span class="text-xl font-bold tracking-widest text-cyan-400">RCS-V8</span>
+        </a>
+        <div class="hidden md:flex space-x-10 text-sm font-medium tracking-wide">
+            <a href="architecture.html" class="hover:text-cyan-400 text-slate-300 transition">产品架构</a>
+            <a href="algorithm.html" class="text-cyan-400 border-b-2 border-cyan-400 pb-1">调度算法</a>
+        </div>
+        <a href="rcs-v8-demo.html" class="btn-primary px-6 py-2 rounded-full text-xs uppercase tracking-tighter inline-block text-center">控制台演示</a>
+    </nav>
+
+    <div class="neon-glow top-20 left-20"></div>
+
+    <section class="py-20 px-10 max-w-7xl mx-auto">
+        <div class="mb-16">
+            <h2 class="text-cyan-500 font-mono mb-2 tracking-widest text-sm flex items-center gap-2">
+                <span class="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></span> ALGORITHM CORE
+            </h2>
+            <h1 class="text-5xl font-bold mb-4">打破运力瓶颈的<span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">毫秒级引擎</span></h1>
+            <p class="text-slate-400 text-lg max-w-2xl">自研基于时空图网络（Spatio-Temporal Graph）的冲突解算模型，在保证“零死锁”的前提下，最大化集群吞吐量。</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8">
+            <div class="glass-card p-8 rounded-xl">
+                <div class="flex justify-between items-start mb-6">
+                    <h3 class="text-2xl font-bold">V-Graph 动态路径规划</h3>
+                    <div class="text-[10px] font-mono bg-cyan-500/10 text-cyan-400 px-2 py-1 rounded border border-cyan-500/30">CALC_TIME: &lt;15ms</div>
+                </div>
+                <p class="text-slate-400 text-sm leading-relaxed mb-6">
+                    抛弃传统的静态 A* 算法。RCS-V8 引入时间维度的代价函数计算，机器人不仅知道“怎么走”，还知道在未来的某一时段“何时通过”该节点。
+                </p>
+                <div class="bg-black/40 border border-slate-800 rounded p-4 flex items-center justify-between mt-4">
+                    <div class="node">A1</div>
+                    <div class="path-line path-active"></div>
+                    <div class="node border-yellow-400 text-yellow-400">C2<br><span class="absolute -top-5 text-[8px] whitespace-nowrap">WAIT 0.5s</span></div>
+                    <div class="path-line"></div>
+                    <div class="node">F3</div>
+                </div>
+            </div>
+
+            <div class="glass-card p-8 rounded-xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10">
+                    <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#36e4da" stroke-width="1"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                </div>
+                <h3 class="text-2xl font-bold mb-4 text-red-400">全局死锁预防与解除</h3>
+                <p class="text-slate-400 text-sm leading-relaxed mb-6">
+                    在狭窄通道、十字路口等高密度拥堵区域，系统采用**交通灯交管控制锁 (Traffic Lock)**。通过有向图环路检测算法 (Cycle Detection)，在发车前直接阻断死锁可能。
+                </p>
+                <div class="bg-slate-900/50 rounded border border-slate-800 p-3 font-mono text-[11px] text-slate-300">
+                    <div class="text-green-400">>> RUN Deadlock_Check(Graph G)</div>
+                    <div>if detect_cycle(G):</div>
+                    <div class="pl-4 text-cyan-300">trigger_reroute(AMR_002, priority=HIGH)</div>
+                    <div class="pl-4">lock_node('CROSS_C2', duration=2.5s)</div>
+                    <div class="text-slate-500 mt-1"># Status: 0 deadlocks verified.</div>
+                </div>
+            </div>
+
+            <div class="glass-card p-8 rounded-xl md:col-span-2">
+                <div class="grid md:grid-cols-2 gap-8 items-center">
+                    <div>
+                        <h3 class="text-2xl font-bold mb-4">基于多目标的智能任务分配</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                            如何将 500 个订单分配给 100 台机器人？系统基于匈牙利算法优化版，综合考量以下权重进行统筹：
+                        </p>
+                        <ul class="space-y-3 text-sm text-slate-300">
+                            <li class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 mr-3"></span> 曼哈顿距离代价极小化</li>
+                            <li class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 mr-3"></span> AMR 当前剩余电量 (BAT > 20%)</li>
+                            <li class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400 mr-3"></span> 订单的紧急程度 (Priority Label)</li>
+                        </ul>
+                    </div>
+                    <div class="border-l-2 border-slate-800 pl-6">
+                        <div class="text-[10px] text-slate-500 font-mono mb-4 border-b border-slate-800 pb-2">TASK MATRIX CALCULATION</div>
+                        <div class="space-y-2 font-mono text-xs">
+                            <div class="flex justify-between items-center p-2 bg-cyan-500/10 border border-cyan-500/20 rounded">
+                                <span>[URGENT] P-892</span>
+                                <span>-></span>
+                                <span class="text-cyan-400">AMR-008 (Cost: 12)</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2 bg-slate-800/50 rounded">
+                                <span>[NORMAL] P-893</span>
+                                <span>-></span>
+                                <span class="text-slate-400">AMR-003 (Cost: 45)</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2 bg-slate-800/50 rounded">
+                                <span>[NORMAL] P-894</span>
+                                <span>-></span>
+                                <span class="text-slate-400">AMR-012 (Cost: 51)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="py-10 px-10 border-t border-slate-800 text-center">
+        <p class="text-slate-600 text-xs font-mono">© 2026 RCS-V8 ALGORITHMS</p>
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RCS-V8 · 机器人调度系统</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-void: #060a0f;
+    --bg-deep: #0a1118;
+    --bg-panel: #0d1520;
+    --bg-card: #111d2b;
+    --bg-hover: #162437;
+    --border: #1e3448;
+    --border-bright: #2a4a6b;
+    --accent: #00d4ff;
+    --accent-dim: #0088aa;
+    --accent-glow: rgba(0,212,255,0.15);
+    --warn: #ff6b2b;
+    --warn-glow: rgba(255,107,43,0.2);
+    --ok: #00ff9d;
+    --ok-dim: #00aa66;
+    --text-primary: #c8dff0;
+    --text-secondary: #5a8aaa;
+    --text-muted: #2d5070;
+    --grid-color: rgba(0,150,200,0.06);
+    --scan-color: rgba(0,212,255,0.03);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg-void);
+    color: var(--text-primary);
+    font-family: 'Noto Sans SC', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── SCANLINE overlay ── */
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background: repeating-linear-gradient(0deg,
+      transparent 0px, transparent 3px,
+      rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px);
+    pointer-events:none; z-index:9999;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    height: 52px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 0;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .topbar::after {
+    content:'';
+    position:absolute; bottom:0; left:0; right:0;
+    height:1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scanH 4s linear infinite;
+  }
+  @keyframes scanH { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
+
+  .logo-block {
+    display:flex; align-items:center; gap:10px;
+    padding: 0 20px;
+    border-right: 1px solid var(--border);
+    height:100%;
+  }
+  .logo-icon {
+    width:28px; height:28px;
+    border: 2px solid var(--accent);
+    display:grid; place-items:center;
+    transform:rotate(45deg);
+    box-shadow: 0 0 10px var(--accent), inset 0 0 6px rgba(0,212,255,0.2);
+  }
+  .logo-icon span { transform:rotate(-45deg); font-size:10px; font-weight:700; color:var(--accent); font-family:'Rajdhani',sans-serif; }
+  .logo-text { font-family:'Rajdhani',sans-serif; font-size:18px; font-weight:700; letter-spacing:3px; color:var(--text-primary); }
+  .logo-sub { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-secondary); letter-spacing:2px; margin-top:-3px; }
+
+  .topbar-stats { display:flex; align-items:center; gap:0; padding-left:20px; }
+  .tstat { display:flex; flex-direction:column; padding:0 18px; border-right:1px solid var(--border); }
+  .tstat-label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-secondary); letter-spacing:1px; }
+  .tstat-val { font-family:'Rajdhani',monospace; font-size:16px; font-weight:600; color:var(--accent); line-height:1.1; }
+  .tstat-val.ok { color:var(--ok); }
+  .tstat-val.warn { color:var(--warn); }
+
+  .topbar-right { margin-left:auto; display:flex; align-items:center; gap:12px; padding-right:20px; z-index: 10; }
+  
+  .btn-lang {
+    background: transparent; border: 1px solid var(--border-bright); color: var(--text-secondary);
+    font-family: 'Share Tech Mono', monospace; font-size: 11px; padding: 3px 8px;
+    cursor: pointer; border-radius: 2px; transition: all 0.2s;
+  }
+  .btn-lang:hover { border-color: var(--accent); color: var(--accent); }
+
+  .sys-time { font-family:'Share Tech Mono',monospace; font-size:13px; color:var(--accent); letter-spacing:1px; }
+  .status-dot {
+    width:8px; height:8px; border-radius:50%; background:var(--ok);
+    box-shadow: 0 0 8px var(--ok); animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+  /* ── MAIN LAYOUT ── */
+  .main { flex:1; display:flex; overflow:hidden; }
+
+  /* ── LEFT PANEL ── */
+  .left-panel {
+    width: 260px; background: var(--bg-panel); border-right: 1px solid var(--border);
+    display:flex; flex-direction:column; flex-shrink:0; overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .panel-title {
+    font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:600;
+    letter-spacing:2px; color:var(--accent); text-transform:uppercase;
+  }
+  
+  .panel-actions { display: flex; align-items: center; gap: 8px; }
+  .panel-badge {
+    background: var(--accent-glow); border: 1px solid var(--accent-dim);
+    color:var(--accent); font-family:'Share Tech Mono',monospace;
+    font-size:10px; padding:1px 7px; border-radius:2px;
+  }
+  .btn-add {
+    background: transparent; border: 1px solid var(--accent-dim); color: var(--accent);
+    width: 18px; height: 18px; border-radius: 2px;
+    display: grid; place-items: center; cursor: pointer;
+    font-family: 'Share Tech Mono', monospace; font-size: 14px; line-height: 1; transition: all 0.2s;
+  }
+  .btn-add:hover { background: var(--accent-glow); box-shadow: 0 0 6px var(--accent); }
+
+  .robot-list { flex:1; overflow-y:auto; padding:8px; }
+  .robot-list::-webkit-scrollbar { width:3px; }
+  .robot-list::-webkit-scrollbar-track { background:transparent; }
+  .robot-list::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
+
+  .robot-card {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius:3px;
+    padding:10px 12px; margin-bottom:6px; cursor:pointer;
+    transition: all 0.2s; position:relative; overflow:hidden;
+  }
+  .robot-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:2px; background: var(--text-muted); transition:background 0.2s; }
+  .robot-card.active::before { background:var(--accent); box-shadow:0 0 6px var(--accent); }
+  .robot-card.moving::before { background:var(--ok); box-shadow:0 0 6px var(--ok); animation:blink-bar 1s ease-in-out infinite; }
+  .robot-card.error::before { background:var(--warn); box-shadow:0 0 6px var(--warn); }
+  .robot-card.waiting::before { background:#ffcc00; box-shadow:0 0 6px #ffcc00; animation:blink-bar 1.5s ease-in-out infinite; }
+  .robot-card.paused::before { background:#ffcc00; box-shadow:0 0 6px #ffcc00; }
+  .rc-status.paused { color:#ffcc00; border:1px solid #aa8800; background:rgba(255,200,0,0.08); }
+  
+  @keyframes blink-bar { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+  .robot-card:hover { background:var(--bg-hover); border-color:var(--border-bright); }
+  .robot-card.selected { background:var(--bg-hover); border-color:var(--accent-dim); }
+
+  .rc-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; padding-right: 48px;}
+  .rc-id { font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:700; color:var(--text-primary); letter-spacing:1px; }
+  .rc-status { font-family:'Share Tech Mono',monospace; font-size:9px; padding:2px 6px; border-radius:2px; letter-spacing:1px; }
+  .rc-status.idle { color:var(--text-secondary); border:1px solid var(--border-bright); background:transparent; }
+  .rc-status.moving { color:var(--ok); border:1px solid var(--ok-dim); background:rgba(0,255,157,0.08); }
+  .rc-status.charging { color:#ffcc00; border:1px solid #aa8800; background:rgba(255,200,0,0.08); }
+  .rc-status.error { color:var(--warn); border:1px solid #aa4400; background:rgba(255,107,43,0.1); }
+  .rc-status.waiting { color:#ffcc00; border:1px solid #aa8800; background:rgba(255,200,0,0.08); }
+
+  .rc-reset {
+    position: absolute; right: 8px; top: 8px; color: var(--text-muted); cursor: pointer;
+    font-size: 14px; line-height: 1; transition: all 0.2s;
+  }
+  .rc-reset:hover { color: var(--warn); transform: rotate(-90deg); text-shadow: 0 0 6px var(--warn); }
+
+  .rc-remove {
+    position: absolute; right: 28px; top: 8px; color: var(--text-muted); cursor: pointer;
+    font-size: 11px; line-height: 1; transition: all 0.2s; font-family: 'Share Tech Mono', monospace;
+    border: 1px solid transparent; padding: 1px 3px; border-radius: 2px;
+  }
+  .rc-remove:hover { color: #ff4444; border-color: #ff4444; text-shadow: 0 0 6px #ff4444; background: rgba(255,68,68,0.08); }
+
+  .rc-info { display:flex; gap:12px; }
+  .rc-info-item { display:flex; flex-direction:column; }
+  .rc-info-label { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--text-muted); letter-spacing:1px; }
+  .rc-info-val { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--text-secondary); margin-top:1px; }
+
+  .battery-bar { height:3px; background:var(--bg-deep); border-radius:1px; margin-top:8px; overflow:hidden; }
+  .battery-fill { height:100%; border-radius:1px; transition: width 0.5s; }
+  .battery-fill.high { background:var(--ok); box-shadow:0 0 4px var(--ok); }
+  .battery-fill.mid { background:#ffcc00; box-shadow:0 0 4px #ffcc00; }
+  .battery-fill.low { background:var(--warn); box-shadow:0 0 4px var(--warn); }
+
+  /* ── MAP CENTER ── */
+  .map-container { flex:1; position:relative; background: var(--bg-deep); overflow:hidden; }
+  .map-canvas { width:100%; height:100%; display:block; cursor: grab; }
+  .map-canvas:active { cursor: grabbing; }
+
+  .map-controls { position:absolute; top:14px; left:14px; display:flex; flex-direction:column; gap:6px; }
+  .map-btn {
+    width:32px; height:32px; background: var(--bg-panel); border: 1px solid var(--border);
+    color:var(--text-secondary); font-size:14px; cursor:pointer; display:grid; place-items:center;
+    border-radius:2px; transition:all 0.2s; font-family:'Rajdhani',sans-serif;
+  }
+  .map-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .map-btn.edit-mode-active { background: rgba(255,107,43,0.1); border-color: var(--warn); color: var(--warn); box-shadow: 0 0 10px rgba(255,107,43,0.2); }
+
+  /* Legend updated for specific node types */
+  .map-legend { position:absolute; bottom:14px; left:14px; background:rgba(13,21,32,0.9); border:1px solid var(--border); padding:10px 14px; border-radius:2px; }
+  .legend-title { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-muted); letter-spacing:2px; margin-bottom:8px; }
+  .legend-group { display: flex; gap: 15px; }
+  .legend-col { display: flex; flex-direction: column; gap: 4px; }
+  .legend-item { display:flex; align-items:center; gap:6px; }
+  .legend-dot { width:8px; height:8px; border-radius:2px; }
+  .legend-text { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-secondary); }
+
+  .map-coords { position:absolute; top:14px; right:14px; font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--text-muted); background:rgba(13,21,32,0.8); border:1px solid var(--border); padding:6px 10px; border-radius:2px; }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel { width:280px; background: var(--bg-panel); border-left: 1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; overflow:hidden; }
+
+  .task-form { padding:14px; border-bottom:1px solid var(--border); }
+  .form-section-title { font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:600; letter-spacing:2px; color:var(--accent); text-transform:uppercase; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+  .form-group { margin-bottom:10px; }
+  .form-label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-muted); letter-spacing:1px; margin-bottom:5px; display:block; }
+  .form-select, .form-input {
+    width:100%; background: var(--bg-card); border:1px solid var(--border); color:var(--text-primary);
+    font-family:'Share Tech Mono',monospace; font-size:11px; padding:7px 10px; border-radius:2px;
+    outline:none; transition:border 0.2s; -webkit-appearance:none; appearance:none;
+  }
+  .form-select:focus, .form-input:focus { border-color:var(--accent-dim); }
+  .form-select option { background:var(--bg-panel); }
+
+  .btn-dispatch {
+    width:100%; background: linear-gradient(135deg, #004466, #006688); border:1px solid var(--accent-dim);
+    color:var(--accent); font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:700;
+    letter-spacing:3px; padding:10px; cursor:pointer; border-radius:2px; text-transform:uppercase;
+    transition:all 0.2s; margin-top:12px; position:relative; overflow:hidden;
+  }
+  .btn-dispatch::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg, rgba(0,212,255,0.1), transparent); opacity:0; transition:opacity 0.2s; }
+  .btn-dispatch:hover { box-shadow: 0 0 20px rgba(0,212,255,0.3); }
+  .btn-dispatch:hover::before { opacity:1; }
+  .btn-dispatch:active { transform:scale(0.98); }
+
+  /* Task Queue */
+  .task-queue { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+  .task-list { flex:1; overflow-y:auto; padding:8px; }
+  .task-list::-webkit-scrollbar { width:3px; }
+  .task-list::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
+
+  .task-item { background:var(--bg-card); border:1px solid var(--border); border-radius:3px; padding:9px 12px; margin-bottom:5px; position:relative; overflow:hidden; }
+  .task-item::before { content:''; position:absolute; left:0; top:0; bottom:0; width:2px; }
+  .task-item.pending::before { background:#ffcc00; }
+  .task-item.running::before { background:var(--ok); animation:blink-bar 0.8s ease-in-out infinite; }
+  .task-item.done::before { background:var(--text-muted); }
+
+  .ti-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .ti-id { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-muted); }
+  .ti-status { font-family:'Share Tech Mono',monospace; font-size:9px; }
+  .ti-status.pending { color:#ffcc00; }
+  .ti-status.running { color:var(--ok); }
+  .ti-status.done { color:var(--text-muted); }
+
+  .ti-desc { font-family:'Noto Sans SC',sans-serif; font-size:11px; color:var(--text-secondary); }
+  .ti-progress { height:2px; background:var(--bg-deep); border-radius:1px; margin-top:7px; overflow:hidden; }
+  .ti-progress-fill { height:100%; background:var(--ok); box-shadow:0 0 4px var(--ok); border-radius:1px; transition:width 0.5s; }
+  .ti-progress-fill.done { background:var(--text-muted); box-shadow:none; }
+  .ti-progress-fill.cancelled { background:#ff4444; box-shadow:none; }
+
+  .task-item.cancelled::before { background:#ff4444; }
+  .ti-status.cancelled { color:#ff4444; }
+
+  .ti-cancel-btn {
+    background: transparent; border: 1px solid #ff4444; color: #ff4444;
+    font-family: 'Share Tech Mono', monospace; font-size: 8px; padding: 1px 5px;
+    cursor: pointer; border-radius: 2px; line-height: 1.4; transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .ti-cancel-btn:hover { background: rgba(255,68,68,0.15); box-shadow: 0 0 6px rgba(255,68,68,0.4); }
+
+  /* Pause btn */
+  .ti-pause-btn {
+    background: transparent; border: 1px solid #ffcc00; color: #ffcc00;
+    font-family: 'Share Tech Mono', monospace; font-size: 8px; padding: 1px 5px;
+    cursor: pointer; border-radius: 2px; line-height: 1.4; transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .ti-pause-btn:hover { background: rgba(255,204,0,0.15); box-shadow: 0 0 6px rgba(255,204,0,0.4); }
+  .ti-pause-btn.resume { border-color: var(--ok); color: var(--ok); }
+  .ti-pause-btn.resume:hover { background: rgba(0,255,157,0.1); box-shadow: 0 0 6px rgba(0,255,157,0.4); }
+
+  /* Paused task state */
+  .task-item.paused::before { background: #ffcc00; }
+  .ti-status.paused { color: #ffcc00; }
+  .ti-progress-fill.paused { background: #ffcc00; box-shadow: 0 0 4px #ffcc00; }
+
+  /* Auto-demo button */
+  .btn-auto-demo {
+    width: 100%; background: transparent; border: 1px solid var(--border-bright);
+    color: var(--text-secondary); font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; letter-spacing: 2px; padding: 7px 10px; cursor: pointer;
+    border-radius: 2px; text-transform: uppercase; transition: all 0.2s;
+    margin-top: 7px; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-auto-demo:hover { border-color: var(--ok); color: var(--ok); }
+  .btn-auto-demo.active {
+    background: rgba(0,255,157,0.08); border-color: var(--ok); color: var(--ok);
+    box-shadow: 0 0 10px rgba(0,255,157,0.15);
+  }
+  .btn-auto-demo .demo-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+  }
+  .btn-auto-demo.active .demo-dot { animation: pulse-dot 0.8s ease-in-out infinite; }
+
+  /* Alert log */
+  .alert-bar { height:36px; background: var(--bg-void); border-top:1px solid var(--border); display:flex; align-items:center; padding:0 16px; gap:12px; flex-shrink:0; overflow:hidden; }
+  .alert-label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--accent); letter-spacing:2px; flex-shrink:0; }
+  .alert-scroll { overflow:hidden; flex:1; }
+  .alert-text { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-secondary); white-space:nowrap; animation:scroll-left 20s linear infinite; }
+  @keyframes scroll-left { from{transform:translateX(100%)} to{transform:translateX(-100%)} }
+
+  /* Tooltip */
+  .tooltip { position:fixed; background:var(--bg-panel); border:1px solid var(--border-bright); padding:6px 10px; border-radius:2px; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-primary); pointer-events:none; z-index:200; display:none; box-shadow: 0 0 12px rgba(0,0,0,0.5); }
+
+  /* Custom Editor Dialog */
+  .dialog-overlay {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px); z-index: 1000;
+    display: flex; justify-content: center; align-items: center;
+  }
+  .dialog-box {
+    background: var(--bg-panel); border: 1px solid var(--border-bright);
+    width: 320px; padding: 20px; border-radius: 4px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8), inset 0 0 15px rgba(0,212,255,0.05);
+  }
+  .dialog-title {
+    font-family: 'Rajdhani', sans-serif; font-size: 16px; font-weight: 700;
+    color: var(--accent); letter-spacing: 2px; margin-bottom: 16px;
+    border-bottom: 1px solid var(--border); padding-bottom: 8px;
+  }
+  .dialog-btn-group { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-dialog {
+    flex: 1; padding: 8px; font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; cursor: pointer; border-radius: 2px; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--text-muted); border: 1px solid var(--border-bright); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dim); border-color: var(--accent); }
+  .btn-danger { background: transparent; border: 1px solid var(--warn); color: var(--warn); }
+  .btn-danger:hover { background: var(--warn-glow); }
+  .btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+  .btn-cancel:hover { border-color: var(--text-muted); color: #fff; }
+
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo-block">
+    <div class="logo-icon"><span>R</span></div>
+    <div>
+      <div class="logo-text">RCS-V8</div>
+      <div class="logo-sub" data-i18n="logo_sub">ROBOT CONTROL SYS</div>
+    </div>
+  </div>
+  <div class="topbar-stats">
+    <div class="tstat"><div class="tstat-label" data-i18n="stat_online">ONLINE</div><div class="tstat-val ok" id="stat-online">8</div></div>
+    <div class="tstat"><div class="tstat-label" data-i18n="stat_moving">MOVING</div><div class="tstat-val" id="stat-moving">0</div></div>
+    <div class="tstat"><div class="tstat-label" data-i18n="stat_tasks">TASKS</div><div class="tstat-val" id="stat-tasks">0</div></div>
+    <div class="tstat"><div class="tstat-label" data-i18n="stat_errors">ERRORS</div><div class="tstat-val warn" id="stat-errors">0</div></div>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-lang" id="btn-lang" onclick="toggleLang()">EN</button>
+    <div class="status-dot"></div>
+    <div class="sys-time" id="sys-time">--:--:--</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="left-panel">
+    <div class="panel-header">
+      <div class="panel-title" data-i18n="panel_robot">机器人列表</div>
+      <div class="panel-actions">
+        <button class="btn-add" onclick="addNewRobot()" title="添加新机器人">+</button>
+        <div class="panel-badge" id="robot-count">8</div>
+      </div>
+    </div>
+    <div class="robot-list" id="robot-list"></div>
+  </div>
+
+  <div class="map-container">
+    <canvas class="map-canvas" id="map-canvas"></canvas>
+    <div class="map-controls">
+      <button class="map-btn" onclick="mapZoomBtn(1.2)" title="放大">+</button>
+      <button class="map-btn" onclick="mapZoomBtn(0.83)" title="缩小">−</button>
+      <button class="map-btn" onclick="mapReset()" title="重置">⊙</button>
+      <button class="map-btn" id="btn-edit-mode" onclick="toggleEditMode()" title="编辑地图">✎</button>
+    </div>
+    <div class="map-coords" id="map-coords">X:-- Y:--</div>
+    
+    <div class="map-legend">
+      <div class="legend-title" data-i18n="legend_title">SITE LEGEND</div>
+      <div class="legend-group">
+        <div class="legend-col">
+          <div class="legend-item"><div class="legend-dot" style="background:#1a4a6b; border:1px solid #2a6a9b"></div><div class="legend-text" data-i18n="leg_a">入库(A)</div></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#1a3a5b; border:1px solid #2a5a8b"></div><div class="legend-text" data-i18n="leg_b">货架(B)</div></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#0d3a4b; border:1px solid #1d5a7b"></div><div class="legend-text" data-i18n="leg_c">分拣(C)</div></div>
+        </div>
+        <div class="legend-col">
+          <div class="legend-item"><div class="legend-dot" style="background:#1a4040; border:1px solid #2a6060"></div><div class="legend-text" data-i18n="leg_d">出库(D)</div></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#1a3a1a; border:1px solid #2a5a2a"></div><div class="legend-text" data-i18n="leg_e">充电(E)</div></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#2a2a2a; border:1px solid #3a3a3a"></div><div class="legend-text" data-i18n="leg_f">缓冲(F)</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="task-form">
+      <div class="form-section-title" data-i18n="panel_dispatch">▸ 任务调度</div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="lbl_robot">SELECT ROBOT</label>
+        <select class="form-select" id="sel-robot"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="lbl_target">TARGET NODE</label>
+        <select class="form-select" id="sel-target"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="lbl_priority">PRIORITY</label>
+        <select class="form-select" id="sel-priority">
+          <option value="normal" data-i18n="pri_normal">NORMAL</option>
+          <option value="high" data-i18n="pri_high">HIGH</option>
+          <option value="urgent" data-i18n="pri_urgent">URGENT</option>
+        </select>
+      </div>
+      <button class="btn-dispatch" id="btn-dispatch" onclick="userDispatchTask()">▶ 任务下发</button>
+      <button class="btn-auto-demo" id="btn-auto-demo" onclick="toggleAutoDemo()">
+        <span class="demo-dot"></span><span id="auto-demo-label">随机任务演示</span>
+      </button>
+    </div>
+
+    <div class="task-queue">
+      <div class="panel-header"><div class="panel-title" data-i18n="panel_queue">任务队列</div><div class="panel-badge" id="task-count">0</div></div>
+      <div class="task-list" id="task-list"><div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);text-align:center;padding:20px;" data-i18n="no_tasks">NO TASKS</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="alert-bar">
+  <div class="alert-label">SYS LOG</div>
+  <div class="alert-scroll"><div class="alert-text" id="alert-text">系统启动完成 · 所有机器人已上线 · 等待任务指令 · SYSTEM READY · ALL UNITS ONLINE</div></div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<div class="dialog-overlay" id="node-dialog" style="display: none;">
+  <div class="dialog-box">
+    <div class="dialog-title" id="nd-title">EDIT NODE</div>
+    <input type="hidden" id="nd-action" value="">
+    <input type="hidden" id="nd-id" value="">
+    <input type="hidden" id="nd-x" value="">
+    <input type="hidden" id="nd-y" value="">
+    
+    <div class="form-group" id="nd-type-group">
+      <label class="form-label">NODE TYPE</label>
+      <select class="form-select" id="nd-type">
+        <option value="A">A - 入库区 (Inbound)</option>
+        <option value="B">B - 货架区 (Storage)</option>
+        <option value="C">C - 分拣区 (Sorting)</option>
+        <option value="D">D - 出库区 (Outbound)</option>
+        <option value="E">E - 充电桩 (Charging)</option>
+        <option value="F">F - 缓冲区 (Buffer)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">NODE NAME (LABEL)</label>
+      <input type="text" class="form-input" id="nd-name" autocomplete="off">
+    </div>
+    
+    <div class="dialog-btn-group">
+      <button class="btn-dialog btn-primary" onclick="saveDialogNode()">SAVE</button>
+      <button class="btn-dialog btn-danger" id="nd-btn-del" onclick="deleteDialogNode()">DELETE</button>
+      <button class="btn-dialog btn-cancel" onclick="closeNodeDialog()">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialog-overlay" id="robot-dialog" style="display: none;">
+  <div class="dialog-box">
+    <div class="dialog-title" id="rd-title">ADD ROBOT</div>
+    <div class="form-group">
+      <label class="form-label">ROBOT ID</label>
+      <input type="text" class="form-input" id="rd-id" autocomplete="off" placeholder="AMR-XXX">
+    </div>
+    <div class="form-group">
+      <label class="form-label">SPAWN NODE</label>
+      <select class="form-select" id="rd-node"></select>
+    </div>
+    <div class="dialog-btn-group">
+      <button class="btn-dialog btn-primary" onclick="confirmAddRobot()">ADD</button>
+      <button class="btn-dialog btn-cancel" onclick="closeRobotDialog()">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// i18n 字典与切换逻辑
+// ─────────────────────────────────────────────
+let currentLang = 'zh';
+const i18nDict = {
+  zh: {
+    logo_sub: "ROBOT CONTROL SYS", stat_online: "ONLINE", stat_moving: "MOVING", stat_tasks: "TASKS", stat_errors: "ERRORS",
+    panel_robot: "机器人列表", panel_dispatch: "▸ 任务调度", panel_queue: "任务队列",
+    lbl_robot: "SELECT ROBOT", lbl_target: "TARGET NODE", lbl_priority: "PRIORITY",
+    pri_normal: "NORMAL", pri_high: "HIGH", pri_urgent: "URGENT", btn_dispatch: "▶ 任务下发",
+    legend_title: "站点图例 (SITE LEGEND)", leg_a: "入库(A)", leg_b: "货架(B)", leg_c: "分拣(C)", leg_d: "出库(D)", leg_e: "充电(E)", leg_f: "缓冲(F)", no_tasks: "暂无任务"
+  },
+  en: {
+    logo_sub: "ROBOT CONTROL SYS", stat_online: "ONLINE", stat_moving: "MOVING", stat_tasks: "TASKS", stat_errors: "ERRORS",
+    panel_robot: "ROBOT LIST", panel_dispatch: "▸ DISPATCHER", panel_queue: "TASK QUEUE",
+    lbl_robot: "SELECT ROBOT", lbl_target: "TARGET NODE", lbl_priority: "PRIORITY",
+    pri_normal: "NORMAL", pri_high: "HIGH", pri_urgent: "URGENT", btn_dispatch: "▶ SEND TASK",
+    legend_title: "SITE LEGEND", leg_a: "Inbound(A)", leg_b: "Storage(B)", leg_c: "Sorting(C)", leg_d: "Outbound(D)", leg_e: "Charge(E)", leg_f: "Buffer(F)", no_tasks: "NO TASKS"
+  }
+};
+
+function toggleLang() {
+  currentLang = currentLang === 'zh' ? 'en' : 'zh';
+  document.getElementById('btn-lang').textContent = currentLang === 'zh' ? 'EN' : '中';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (i18nDict[currentLang][key]) el.textContent = i18nDict[currentLang][key];
+  });
+  document.getElementById('btn-dispatch').textContent = i18nDict[currentLang].btn_dispatch;
+  buildRobotList();
+}
+
+// ─────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────
+let NODES = [
+  {id:'A1',label:'入库口A',x:80, y:100},{id:'A2',label:'入库口B',x:80,y:200},{id:'A3',label:'入库口C',x:80,y:300},
+  {id:'B1',label:'货架区01',x:220,y:80},{id:'B2',label:'货架区02',x:220,y:160},{id:'B3',label:'货架区03',x:220,y:240},{id:'B4',label:'货架区04',x:220,y:320},
+  {id:'C1',label:'分拣台01',x:370,y:120},{id:'C2',label:'分拣台02',x:370,y:220},{id:'C3',label:'分拣台03',x:370,y:320},
+  {id:'D1',label:'出库口A',x:520,y:80},{id:'D2',label:'出库口B',x:520,y:200},{id:'D3',label:'出库口C',x:520,y:320},
+  {id:'E1',label:'充电桩01',x:640,y:120},{id:'E2',label:'充电桩02',x:640,y:250},{id:'E3',label:'充电桩03',x:640,y:360},
+  {id:'F1',label:'缓冲区01',x:320,y:430},{id:'F2',label:'缓冲区02',x:180,y:430},{id:'F3',label:'缓冲区03',x:470,y:430},
+];
+
+let EDGES = [
+  ['A1','B1'],['A1','B2'],['A2','B2'],['A2','B3'],['A3','B3'],['A3','B4'],
+  ['B1','C1'],['B2','C1'],['B2','C2'],['B3','C2'],['B3','C3'],['B4','C3'],
+  ['C1','D1'],['C1','D2'],['C2','D2'],['C2','D3'],['C3','D3'],
+  ['D1','E1'],['D2','E1'],['D2','E2'],['D3','E2'],['D3','E3'],
+  ['B3','F2'],['C2','F1'],['C3','F3'],['F1','D2'],['F2','A2'],['F3','D3'],
+  ['E1','E2'],['E2','E3'],['A1','A2'],['A2','A3'],['D1','D2'],['D2','D3'],
+];
+
+const ROBOTS = [
+  {id:'AMR-001', battery:92, status:'idle', angle:0},
+  {id:'AMR-002', battery:78, status:'idle', angle:0},
+  {id:'AMR-003', battery:55, status:'idle', angle:0},
+  {id:'AMR-004', battery:100, status:'charging', angle:0},
+  {id:'AMR-005', battery:34, status:'idle', angle:0},
+  {id:'AMR-006', battery:88, status:'idle', angle:0},
+  {id:'AMR-007', battery:62, status:'idle', angle:0},
+  {id:'AMR-008', battery:15, status:'error', angle:0},
+];
+
+const startNodes = ['B2','C1','A1','E1','B4','C3','D2','B3'];
+ROBOTS.forEach((r,i) => {
+  const n = NODES.find(n=>n.id===startNodes[i]);
+  r.x = n.x; r.y = n.y; r.nodeId = n.id;
+  r.targetX = n.x; r.targetY = n.y;
+  r.path = []; r.pathIdx = 0; r.task = null;
+});
+
+let tasks = [];
+let taskSeq = 1;
+let selectedRobot = null;
+let isEditMode = false;
+let editStartNode = null;
+
+// ─────────────────────────────────────────────
+// MAP CANVAS SETUP & INTERACTION
+// ─────────────────────────────────────────────
+const canvas = document.getElementById('map-canvas');
+const ctx = canvas.getContext('2d');
+let mapScale = 1;
+let mapOffX = 60, mapOffY = 60;
+
+function resizeCanvas() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+function mapZoomBtn(f) { mapScale = Math.max(0.5, Math.min(3, mapScale*f)); }
+function mapReset() { mapScale=1; mapOffX=60; mapOffY=60; }
+
+// --- 新增: 鼠标滚轮缩放 ---
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+  const oldScale = mapScale;
+  mapScale = Math.max(0.3, Math.min(4, mapScale * zoomFactor));
+
+  // 以鼠标指针为中心进行缩放偏移计算
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  mapOffX = mouseX - (mouseX - mapOffX) * (mapScale / oldScale);
+  mapOffY = mouseY - (mouseY - mapOffY) * (mapScale / oldScale);
+});
+
+let panning=false, panStart={x:0,y:0};
+canvas.addEventListener('mousedown',e=>{ 
+  if(e.button !== 0) return; 
+  panning=true; panStart={x:e.clientX-mapOffX,y:e.clientY-mapOffY}; 
+});
+canvas.addEventListener('mouseup',()=>panning=false);
+canvas.addEventListener('mousemove',e=>{
+  if(panning){ mapOffX=e.clientX-panStart.x; mapOffY=e.clientY-panStart.y; }
+  const mx=(e.offsetX-mapOffX)/mapScale, my=(e.offsetY-mapOffY)/mapScale;
+  document.getElementById('map-coords').textContent=`X:${Math.round(mx)} Y:${Math.round(my)}`;
+
+  const tt=document.getElementById('tooltip');
+  const node=NODES.find(n=>Math.hypot(n.x-mx,n.y-my)<14);
+  if(node){
+    tt.style.display='block'; tt.style.left=(e.clientX+12)+'px'; tt.style.top=(e.clientY-10)+'px';
+    tt.textContent=`[${node.id}] ${node.label}`;
+  } else { tt.style.display='none'; }
+});
+canvas.addEventListener('mouseleave',()=>{ document.getElementById('tooltip').style.display='none'; panning=false; });
+
+function toggleEditMode() {
+  isEditMode = !isEditMode; editStartNode = null;
+  document.getElementById('btn-edit-mode').classList.toggle('edit-mode-active');
+  const msg = isEditMode ? '编辑模式: 左键空白新建，连击节点连线，右键节点编辑/删除' : '编辑模式已关闭';
+  const msgEn = isEditMode ? 'Edit Mode: Left-click empty to add, click nodes to link, right-click to edit/del' : 'Edit Mode OFF';
+  addLog(currentLang === 'zh' ? msg : msgEn);
+}
+
+// ─────────────────────────────────────────────
+// DIALOG & NODE EDITING
+// ─────────────────────────────────────────────
+function openNodeDialog(action, data) {
+  const overlay = document.getElementById('node-dialog');
+  document.getElementById('nd-action').value = action;
+  
+  if (action === 'create') {
+    document.getElementById('nd-title').textContent = currentLang==='zh' ? '新建节点 (NEW NODE)' : 'NEW NODE';
+    document.getElementById('nd-x').value = data.x;
+    document.getElementById('nd-y').value = data.y;
+    document.getElementById('nd-type-group').style.display = 'block';
+    document.getElementById('nd-btn-del').style.display = 'none';
+    document.getElementById('nd-name').value = '新建站点';
+  } else if (action === 'edit') {
+    document.getElementById('nd-title').textContent = currentLang==='zh' ? `编辑节点 [${data.id}]` : `EDIT NODE [${data.id}]`;
+    document.getElementById('nd-id').value = data.id;
+    document.getElementById('nd-type-group').style.display = 'none'; // 编辑时不再允许改类型（避免破坏现有ID结构）
+    document.getElementById('nd-btn-del').style.display = 'block';
+    document.getElementById('nd-name').value = data.label;
+  }
+  overlay.style.display = 'flex';
+}
+
+function closeNodeDialog() { document.getElementById('node-dialog').style.display = 'none'; }
+
+function saveDialogNode() {
+  const action = document.getElementById('nd-action').value;
+  const name = document.getElementById('nd-name').value.trim() || 'UNNAMED';
+  
+  if (action === 'create') {
+    const type = document.getElementById('nd-type').value;
+    const x = parseFloat(document.getElementById('nd-x').value);
+    const y = parseFloat(document.getElementById('nd-y').value);
+    
+    // 生成新的ID (如C选型，找到当前C最大的序号+1)
+    const typeNodes = NODES.filter(n => n.id.startsWith(type));
+    let maxNum = 0;
+    typeNodes.forEach(n => {
+      const num = parseInt(n.id.replace(type, ''));
+      if(!isNaN(num) && num > maxNum) maxNum = num;
+    });
+    const newId = `${type}${maxNum + 1}`;
+    
+    NODES.push({id: newId, label: name, x: x, y: y});
+    graph[newId] = [];
+    if (editStartNode) {
+      EDGES.push([editStartNode, newId]);
+      Object.assign(graph, buildGraph());
+      editStartNode = null;
+    }
+    addLog(currentLang==='zh'?`节点已创建: [${newId}] ${name}`:`Node created: [${newId}] ${name}`);
+  } else {
+    const id = document.getElementById('nd-id').value;
+    const node = NODES.find(n => n.id === id);
+    if(node) {
+      node.label = name;
+      addLog(currentLang==='zh'?`节点重命名: [${id}] -> ${name}`:`Node renamed: [${id}] -> ${name}`);
+    }
+  }
+  buildSelects();
+  closeNodeDialog();
+}
+
+function deleteDialogNode() {
+  const id = document.getElementById('nd-id').value;
+    NODES = NODES.filter(n => n.id !== id);
+    EDGES = EDGES.filter(e => e[0] !== id && e[1] !== id);
+    Object.keys(graph).forEach(k => delete graph[k]);
+    Object.assign(graph, buildGraph());
+    
+    // 强制复位路径中包含该点的机器人
+    ROBOTS.forEach(r => {
+      if(r.nodeId === id || r.path.includes(id)) { resetRobot(r.id); }
+    });
+    addLog(currentLang==='zh'?`节点 [${id}] 已删除`:`Node [${id}] deleted`);
+    buildSelects();
+    closeNodeDialog();
+}
+
+// 右键编辑已有节点
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault(); 
+  if(!isEditMode) return;
+  const mx=(e.offsetX-mapOffX)/mapScale, my=(e.offsetY-mapOffY)/mapScale;
+  const node=NODES.find(n=>Math.hypot(n.x-mx,n.y-my)<14);
+  if(node) openNodeDialog('edit', node);
+});
+
+// 左键交互 (连线或新建)
+canvas.addEventListener('click', e=>{
+  if(panning && (Math.abs(e.movementX)>3||Math.abs(e.movementY)>3)) return;
+  const mx=(e.offsetX-mapOffX)/mapScale, my=(e.offsetY-mapOffY)/mapScale;
+  const node=NODES.find(n=>Math.hypot(n.x-mx,n.y-my)<14);
+  
+  if (isEditMode) {
+    if (node) {
+      if (!editStartNode) {
+        editStartNode = node.id;
+        addLog(currentLang === 'zh' ? `选中起点 [${node.id}]，请点击下一节点连线` : `Selected [${node.id}], click next to link`);
+      } else {
+        if (editStartNode !== node.id) {
+          const exists = EDGES.some(edge => (edge[0]===editStartNode && edge[1]===node.id) || (edge[1]===editStartNode && edge[0]===node.id));
+          if(!exists) {
+            EDGES.push([editStartNode, node.id]);
+            for (let prop in graph) { delete graph[prop]; }
+            Object.assign(graph, buildGraph());
+            addLog(currentLang === 'zh' ? `已连接 [${editStartNode}] 和 [${node.id}]` : `Linked [${editStartNode}] & [${node.id}]`);
+          }
+        }
+        editStartNode = null;
+      }
+    } else {
+      openNodeDialog('create', {x: mx, y: my});
+    }
+  } else {
+    if(node){ document.getElementById('sel-target').value=node.id; }
+  }
+});
+
+
+// ─────────────────────────────────────────────
+// PATHFINDING (simple BFS)
+// ─────────────────────────────────────────────
+function buildGraph() {
+  const g={}; NODES.forEach(n=>g[n.id]=[]);
+  EDGES.forEach(([a,b])=>{ g[a].push(b); g[b].push(a); });
+  return g;
+}
+const graph = buildGraph();
+function bfs(start,end) {
+  if(start===end) return [start];
+  const queue=[[start]], visited=new Set([start]);
+  while(queue.length){
+    const path=queue.shift(), last=path[path.length-1];
+    for(const nb of (graph[last]||[])){
+      if(!visited.has(nb)){
+        const np=[...path,nb];
+        if(nb===end) return np;
+        visited.add(nb); queue.push(np);
+      }
+    }
+  }
+  return [start];
+}
+
+// ─────────────────────────────────────────────
+// DRAWING SYSTEM
+// ─────────────────────────────────────────────
+function nodeColor(id) {
+  const map={A:'#1a4a6b',B:'#1a3a5b',C:'#0d3a4b',D:'#1a4040',E:'#1a3a1a',F:'#2a2a2a'};
+  return map[id[0]]||'#1a2a3a';
+}
+function nodeBorderColor(id) {
+  const map={A:'#2a6a9b',B:'#2a5a8b',C:'#1d5a7b',D:'#2a6060',E:'#2a5a2a',F:'#3a3a3a'};
+  return map[id[0]]||'#2a4a5a';
+}
+
+function drawRobotModel(ctx, col, w, h) {
+  // 车体底盘
+  ctx.beginPath();
+  ctx.roundRect(-w/2, -h/2, w, h, 3);
+  ctx.fillStyle = 'var(--bg-deep)'; ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = col; ctx.stroke();
+  
+  // 仿真工业轮组
+  ctx.fillStyle = 'var(--text-muted)';
+  ctx.fillRect(-w/2 + 4, -h/2 - 2, 6, 2);
+  ctx.fillRect(-w/2 + 4, h/2, 6, 2);
+  ctx.fillRect(w/2 - 10, -h/2 - 2, 6, 2);
+  ctx.fillRect(w/2 - 10, h/2, 6, 2);
+  
+  // 车头方向指示灯 / 激光雷达区
+  ctx.beginPath();
+  ctx.moveTo(w/2 - 3, -h/2 + 4);
+  ctx.lineTo(w/2 + 1, 0);
+  ctx.lineTo(w/2 - 3, h/2 - 4);
+  ctx.fillStyle = col; ctx.fill();
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.save();
+  ctx.translate(mapOffX, mapOffY);
+  ctx.scale(mapScale, mapScale);
+
+  ctx.strokeStyle='rgba(0,150,200,0.05)'; ctx.lineWidth=1;
+  for(let x=-50;x<900;x+=40){ ctx.beginPath(); ctx.moveTo(x,-50); ctx.lineTo(x,600); ctx.stroke(); }
+  for(let y=-50;y<700;y+=40){ ctx.beginPath(); ctx.moveTo(-50,y); ctx.lineTo(900,y); ctx.stroke(); }
+
+  ctx.font='bold 9px "Share Tech Mono"'; ctx.fillStyle='rgba(0,150,200,0.12)';
+  [{l:'INBOUND',x:35,y:50},{l:'STORAGE',x:180,y:50},{l:'SORTING',x:330,y:50},{l:'OUTBOUND',x:475,y:50},{l:'CHARGING',x:600,y:50},{l:'BUFFER',x:250,y:400}].forEach(z=>ctx.fillText(z.l,z.x,z.y));
+
+  ctx.strokeStyle='rgba(0,150,200,0.06)'; ctx.lineWidth=1; ctx.setLineDash([4,8]);
+  [[30,55,140,350],[170,55,140,350],[310,55,140,350],[450,55,140,350],[580,55,130,360],[130,400,400,70]].forEach(([x,y,w,h])=>ctx.strokeRect(x,y,w,h));
+  ctx.setLineDash([]);
+
+  EDGES.forEach(([a,b])=>{
+    const na=NODES.find(n=>n.id===a), nb=NODES.find(n=>n.id===b);
+    if(!na||!nb) return;
+    ctx.strokeStyle='rgba(30,80,120,0.6)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(na.x,na.y); ctx.lineTo(nb.x,nb.y); ctx.stroke();
+  });
+
+  if(isEditMode && editStartNode) {
+    const st = NODES.find(n=>n.id===editStartNode);
+    if(st) {
+      ctx.beginPath(); ctx.arc(st.x, st.y, 14, 0, Math.PI*2);
+      ctx.strokeStyle='var(--warn)'; ctx.lineWidth=2; ctx.stroke();
+    }
+  }
+
+  // --- 新增: 动态缩短的规划路径渲染 ---
+  ROBOTS.forEach(r=>{
+    if(r.path.length > 0 && r.pathIdx < r.path.length){
+      ctx.strokeStyle='rgba(0,255,157,0.3)'; ctx.lineWidth=3; ctx.setLineDash([6,4]);
+      ctx.beginPath();
+      ctx.moveTo(r.x, r.y); // 从车辆当前的真实坐标开始画
+      for(let i=r.pathIdx; i<r.path.length; i++){
+        const n=NODES.find(n=>n.id===r.path[i]);
+        if(n) ctx.lineTo(n.x,n.y);
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+  });
+
+  NODES.forEach(n=>{
+    ctx.beginPath(); ctx.arc(n.x, n.y, 10, 0, Math.PI*2);
+    ctx.fillStyle=nodeColor(n.id); ctx.fill();
+    ctx.strokeStyle=nodeBorderColor(n.id); ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='rgba(100,180,220,0.6)'; ctx.font='bold 8px "Share Tech Mono"';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(n.id, n.x, n.y);
+    ctx.fillStyle='rgba(100,150,180,0.7)'; ctx.font='7px "Noto Sans SC"';
+    ctx.fillText(n.label, n.x, n.y+18);
+  });
+
+  ROBOTS.forEach(r=>{
+    const isSelected = selectedRobot===r.id;
+    const colors={ idle:'#00d4ff', moving:'#00ff9d', waiting:'#ffcc00', charging:'#ffcc00', error:'#ff6b2b' };
+    const col=colors[r.status]||'#00d4ff';
+
+    if(isSelected){
+      ctx.beginPath(); ctx.arc(r.x, r.y, 20, 0, Math.PI*2);
+      ctx.strokeStyle=col; ctx.lineWidth=1; ctx.globalAlpha=0.3; ctx.stroke(); ctx.globalAlpha=1;
+    }
+
+    if(r.status==='moving' || (r.status==='charging' && r.battery<100)){
+      const t=Date.now()/1000; const pulse=(Math.sin(t*4)*0.5+0.5)*0.4+0.1;
+      ctx.beginPath(); ctx.arc(r.x, r.y, 18+pulse*6, 0, Math.PI*2);
+      ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.globalAlpha=pulse*0.6; ctx.stroke(); ctx.globalAlpha=1;
+    }
+
+    // --- 新增: 仿真车体绘制及旋转逻辑 ---
+    ctx.save();
+    ctx.translate(r.x, r.y);
+    // 计算车头朝向
+    if ((r.status === 'moving' || r.status === 'waiting') && (r.targetX !== r.x || r.targetY !== r.y)) {
+        r.angle = Math.atan2(r.targetY - r.y, r.targetX - r.x);
+    }
+    ctx.rotate(r.angle);
+    drawRobotModel(ctx, col, 24, 18);
+    ctx.restore(); // 恢复坐标系，防止文字也跟着旋转
+
+    // 文字和电量条始终正向显示
+    ctx.fillStyle='#fff'; ctx.font='bold 7px "Share Tech Mono"';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; 
+    ctx.shadowBlur=4; ctx.shadowColor='#000'; // 增加阴影防止文字看不清
+    ctx.fillText(r.id.split('-')[1]||r.id, r.x, r.y);
+    ctx.shadowBlur=0;
+
+    const bw=20, bh=3, bx=r.x-bw/2, by=r.y-20;
+    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(bx,by,bw,bh);
+    const bCol=r.battery>50?'#00ff9d':r.battery>25?'#ffcc00':'#ff6b2b';
+    ctx.fillStyle=bCol; ctx.fillRect(bx,by,bw*r.battery/100,bh);
+    ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=0.5; ctx.strokeRect(bx,by,bw,bh);
+
+    // Task label below robot
+    if(r.task) {
+      const taskStatus = tasks.find(t => t.id === r.task);
+      const taskCol = r.status === 'paused' ? '#ffcc00' : col;
+      ctx.font = '6px "Share Tech Mono"';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      const lw = ctx.measureText(r.task).width + 6;
+      ctx.fillRect(r.x - lw/2, r.y + 14, lw, 10);
+      ctx.fillStyle = taskCol;
+      ctx.fillText(r.task, r.x, r.y + 16);
+    }
+  });
+
+  ctx.restore();
+  requestAnimationFrame(draw);
+}
+draw();
+
+// ─────────────────────────────────────────────
+// ROBOT MOVEMENT & COLLISION
+// ─────────────────────────────────────────────
+const SPEED = 1.2;
+
+function updateRobots() {
+  ROBOTS.forEach(r=>{
+    if(r.status === 'paused') return; // frozen in place
+    if((r.status==='moving' || r.status==='waiting') && r.path.length>0){
+      const targetNodeId = r.path[r.pathIdx];
+      const targetNode=NODES.find(n=>n.id===targetNodeId);
+      if(!targetNode){ r.status='idle'; return; }
+
+      const isBlocked = ROBOTS.some(other => {
+        if(other.id === r.id) return false;
+        if(other.nodeId === targetNodeId) return true;
+        if((other.status === 'moving' || other.status === 'waiting') && other.path[other.pathIdx] === targetNodeId) {
+          if (other.id < r.id) return true;
+        }
+        return false;
+      });
+
+      if (isBlocked) {
+        if (r.status !== 'waiting') { r.status = 'waiting'; updateRobotCard(r); }
+        return; 
+      } else if (r.status === 'waiting') {
+        r.status = 'moving'; updateRobotCard(r); 
+      }
+
+      r.targetX=targetNode.x; r.targetY=targetNode.y;
+      const dx=r.targetX-r.x, dy=r.targetY-r.y, dist=Math.hypot(dx,dy);
+
+      if(dist<SPEED+0.1){
+        r.x=r.targetX; r.y=r.targetY;
+        r.nodeId=r.path[r.pathIdx];
+        r.pathIdx++;
+
+        if(r.pathIdx>=r.path.length){
+          r.path=[];
+          if(r.task){ completeTask(r.task); addLog(`${r.id} ${currentLang==='zh'?'已到达目标':'arrived at'} ${r.nodeId}`); r.task=null; }
+          
+          if(r.nodeId.startsWith('E')) {
+            r.status = 'charging'; addLog(`${r.id} ${currentLang==='zh'?'已接入充电桩':'docked and charging'}`);
+          } else { r.status = 'idle'; }
+          
+          r.battery=Math.max(1, r.battery-Math.floor(Math.random()*8+3));
+          updateRobotCard(r);
+        }
+      } else {
+        r.x += dx/dist*SPEED; r.y += dy/dist*SPEED; r.nodeId = null; 
+        if(r.task){
+          const t=tasks.find(t=>t.id===r.task);
+          if(t){ t.progress=Math.min(99, r.pathIdx/r.path.length*100); renderTaskItem(t); }
+        }
+      }
+    }
+  });
+}
+setInterval(updateRobots, 16);
+
+setInterval(()=>{
+  let needUpdate = false;
+  ROBOTS.forEach(r => {
+    if(r.status === 'charging') {
+      if(r.battery < 100) { r.battery += 1; needUpdate = true; }
+      if(r.battery >= 100 && r.status === 'charging') {
+        r.status = 'idle'; needUpdate = true;
+        addLog(`${r.id} ${currentLang==='zh'?'充电完成':'fully charged'}`);
+      }
+    }
+  });
+  if(needUpdate) { ROBOTS.forEach(r => updateRobotCard(r)); }
+}, 1000);
+
+// ─────────────────────────────────────────────
+// UI & DISPATCH LOGIC
+// ─────────────────────────────────────────────
+function buildRobotList() {
+  const container=document.getElementById('robot-list');
+  container.innerHTML = '';
+  ROBOTS.forEach(r=>{ container.innerHTML+=robotCardHTML(r); });
+  document.getElementById('robot-count').textContent=ROBOTS.length;
+}
+
+function robotCardHTML(r) {
+  const bClass=r.battery>50?'high':r.battery>25?'mid':'low';
+  return `<div class="robot-card ${r.status}" id="card-${r.id}" onclick="selectRobot('${r.id}')">
+    <div class="rc-remove" onclick="event.stopPropagation(); removeRobot('${r.id}')" title="移除机器人">✕</div>
+    <div class="rc-reset" onclick="event.stopPropagation(); resetRobot('${r.id}')" title="Reset">↺</div>
+    <div class="rc-head"><div class="rc-id">${r.id}</div><div class="rc-status ${r.status}">${statusLabel(r.status)}</div></div>
+    <div class="rc-info">
+      <div class="rc-info-item"><div class="rc-info-label">NODE</div><div class="rc-info-val">${r.nodeId||'--'}</div></div>
+      <div class="rc-info-item"><div class="rc-info-label">BATT</div><div class="rc-info-val">${r.battery}%</div></div>
+      <div class="rc-info-item"><div class="rc-info-label">TASK</div><div class="rc-info-val">${r.task||'NONE'}</div></div>
+    </div>
+    <div class="battery-bar"><div class="battery-fill ${bClass}" style="width:${r.battery}%"></div></div>
+  </div>`;
+}
+
+function updateRobotCard(r) {
+  const el=document.getElementById('card-'+r.id);
+  if(!el) return;
+  el.outerHTML=robotCardHTML(r);
+  if (selectedRobot === r.id) { document.getElementById('card-'+r.id).classList.add('selected'); }
+}
+
+function statusLabel(s) {
+  const mapZh = {idle:'空闲',moving:'移动',charging:'充电',error:'故障',waiting:'等待',paused:'已暂停'};
+  const mapEn = {idle:'IDLE',moving:'MOVING',charging:'CHRG',error:'ERROR',waiting:'WAIT',paused:'PAUSED'};
+  return currentLang === 'zh' ? (mapZh[s]||s.toUpperCase()) : (mapEn[s]||s.toUpperCase());
+}
+
+function selectRobot(id) {
+  selectedRobot=id; document.querySelectorAll('.robot-card').forEach(c=>c.classList.remove('selected'));
+  const el=document.getElementById('card-'+id); if(el) el.classList.add('selected');
+  document.getElementById('sel-robot').value=id;
+}
+
+function buildSelects() {
+  const rs=document.getElementById('sel-robot'); rs.innerHTML = '';
+  ROBOTS.forEach(r=>{ rs.innerHTML+=`<option value="${r.id}">${r.id}</option>`; });
+  const ts=document.getElementById('sel-target'); ts.innerHTML = '';
+  NODES.forEach(n=>{ ts.innerHTML+=`<option value="${n.id}">[${n.id}] ${n.label}</option>`; });
+}
+
+function isNodeEmpty(nodeId) { return !ROBOTS.some(r => r.nodeId === nodeId || (r.path && r.path.includes(nodeId))); }
+function findEvadeNode(startNodeId, blockedSet) {
+  const queue=[startNodeId], visited=new Set([startNodeId]);
+  while(queue.length) {
+    const curr = queue.shift();
+    if (curr !== startNodeId && !blockedSet.has(curr) && isNodeEmpty(curr)) return curr;
+    for (const nb of (graph[curr]||[])) { if (!visited.has(nb)) { visited.add(nb); queue.push(nb); } }
+  }
+  return null;
+}
+
+function userDispatchTask() { dispatchTask(null, null, false); }
+
+function dispatchTask(targetRId, targetTId, isEvadeMode) {
+  const rid=targetRId || document.getElementById('sel-robot').value;
+  const tid=targetTId || document.getElementById('sel-target').value;
+  const pri=isEvadeMode ? 'urgent' : document.getElementById('sel-priority').value;
+
+  const robot=ROBOTS.find(r=>r.id===rid);
+  if(!robot){ alert(currentLang==='zh'?'请选择机器人':'Please select a robot'); return; }
+  if(robot.status==='error'){ addLog(`${rid} ${currentLang==='zh'?'故障中，无法调度':'is in error state'}`); return; }
+  if(!isEvadeMode && (robot.status==='moving' || robot.status==='waiting' || robot.status==='paused')){ addLog(`${rid} ${currentLang==='zh'?'繁忙中':'is busy'}`); return; }
+  if(robot.nodeId===tid){ addLog(`${rid} ${currentLang==='zh'?'已在目标节点':'is already at'} ${tid}`); return; }
+
+  const path=bfs(robot.nodeId, tid);
+  if(path.length<2){ addLog(`${currentLang==='zh'?'无法规划路径':'Cannot find path'}: ${robot.nodeId} → ${tid}`); return; }
+
+  if(!isEvadeMode) {
+    const blockedNodes = new Set(path);
+    path.forEach(nodeId => {
+      const occupant = ROBOTS.find(r => r.id !== rid && r.nodeId === nodeId);
+      if (occupant && (occupant.status === 'idle' || occupant.status === 'charging')) {
+        const evadeNode = findEvadeNode(occupant.nodeId, blockedNodes);
+        if (evadeNode) { addLog(`${currentLang==='zh'?'智能避让':'Evasion'} - ${occupant.id} → [${evadeNode}]`); dispatchTask(occupant.id, evadeNode, true); }
+      }
+    });
+  }
+
+  const taskId=`T${String(taskSeq++).padStart(3,'0')}`;
+  const fromNode = robot.nodeId;
+  const task={id:taskId, robotId:rid, from:fromNode, to:tid, priority:pri, status:'running', progress:0};
+  tasks.unshift(task);
+
+  robot.path=path; robot.pathIdx=1; robot.status='moving'; robot.task=taskId;
+  renderTaskList(); updateRobotCard(robot); updateStats();
+  if(!isEvadeMode) addLog(`${currentLang==='zh'?'任务调度':'Task'} ${taskId}: ${rid} → [${tid}]`);
+}
+
+function resetRobot(id) {
+  const r = ROBOTS.find(x => x.id === id); if(!r) return;
+  r.status = 'idle'; r.path = [];
+  if(r.task) { const t = tasks.find(x => x.id === r.task); if(t) t.status = 'done'; r.task = null; }
+  
+  let nearestNode = NODES[0], minDist = Infinity;
+  NODES.forEach(n => { const d = Math.hypot(n.x - r.x, n.y - r.y); if(d < minDist) { minDist = d; nearestNode = n; } });
+  r.x = nearestNode.x; r.y = nearestNode.y; r.targetX = r.x; r.targetY = r.y; r.nodeId = nearestNode.id; r.angle = 0;
+  
+  addLog(`${r.id} ${currentLang==='zh'?'已强制复位':'force reset'} -> [${nearestNode.id}]`);
+  updateRobotCard(r); renderTaskList(); updateStats();
+}
+
+function removeRobot(id) {
+  const idx = ROBOTS.findIndex(x => x.id === id);
+  if(idx === -1) return;
+  const r = ROBOTS[idx];
+  // Cancel any active task
+  if(r.task) {
+    const t = tasks.find(x => x.id === r.task);
+    if(t && (t.status === 'running' || t.status === 'paused')) {
+      t.status = 'cancelled'; t.progress = 0;
+    }
+    r.task = null;
+  }
+  if(selectedRobot === id) selectedRobot = null;
+  ROBOTS.splice(idx, 1);
+  buildRobotList(); buildSelects(); renderTaskList(); updateStats();
+  addLog(currentLang==='zh'?`车辆 ${id} 已移除下线`:`Robot ${id} removed`);
+}
+
+function addNewRobot() {
+  const defaultId = `AMR-${String(ROBOTS.length + 1).padStart(3, '0')}`;
+  document.getElementById('rd-id').value = defaultId;
+  // Populate node select, prefer empty nodes
+  const rdNode = document.getElementById('rd-node');
+  rdNode.innerHTML = '';
+  NODES.forEach(n => {
+    const empty = isNodeEmpty(n.id);
+    rdNode.innerHTML += `<option value="${n.id}"${empty ? '' : ' style="color:var(--warn);"'}>[${n.id}] ${n.label}${empty ? '' : ' ⚠'}</option>`;
+  });
+  // Pre-select first empty node
+  const firstEmpty = NODES.find(n => isNodeEmpty(n.id));
+  if(firstEmpty) rdNode.value = firstEmpty.id;
+  document.getElementById('rd-title').textContent = currentLang === 'zh' ? '添加机器人' : 'ADD ROBOT';
+  document.getElementById('robot-dialog').style.display = 'flex';
+  setTimeout(() => document.getElementById('rd-id').focus(), 50);
+}
+
+function closeRobotDialog() {
+  document.getElementById('robot-dialog').style.display = 'none';
+}
+
+function confirmAddRobot() {
+  const id = document.getElementById('rd-id').value.trim();
+  if(!id) { document.getElementById('rd-id').focus(); return; }
+  if(ROBOTS.find(r => r.id === id)) {
+    document.getElementById('rd-id').style.borderColor = 'var(--warn)';
+    addLog(currentLang==='zh'?`ID "${id}" 已存在`:`ID "${id}" already exists`);
+    return;
+  }
+  document.getElementById('rd-id').style.borderColor = '';
+  const nodeId = document.getElementById('rd-node').value;
+  const startNode = NODES.find(n => n.id === nodeId) || NODES[0];
+  ROBOTS.push({ id, battery: 100, status: 'idle', angle: 0,
+    x: startNode.x, y: startNode.y, nodeId: startNode.id,
+    targetX: startNode.x, targetY: startNode.y,
+    path: [], pathIdx: 0, task: null });
+  buildRobotList(); buildSelects(); updateStats();
+  addLog(currentLang==='zh'?`新车辆 ${id} 已上线 @ [${startNode.id}]`:`New robot ${id} online @ [${startNode.id}]`);
+  closeRobotDialog();
+}
+
+// Enter key on robot dialog id input
+document.getElementById('rd-id').addEventListener('keydown', e => { if(e.key === 'Enter') confirmAddRobot(); });
+
+function completeTask(taskId) { const t=tasks.find(t=>t.id===taskId); if(t){ t.status='done'; t.progress=100; renderTaskList(); updateStats(); } }
+
+function pauseTask(taskId) {
+  const t = tasks.find(t => t.id === taskId);
+  if(!t || t.status !== 'running') return;
+  const robot = ROBOTS.find(r => r.id === t.robotId);
+  if(!robot) return;
+  t.status = 'paused';
+  robot.status = 'paused';
+  // Store paused path info on robot so we can resume
+  robot._pausedPath = robot.path.slice();
+  robot._pausedPathIdx = robot.pathIdx;
+  robot.path = [];
+  updateRobotCard(robot);
+  addLog(`${currentLang==='zh'?'任务已暂停':'Task paused'}: ${taskId}`);
+  renderTaskList(); updateStats();
+}
+
+function resumeTask(taskId) {
+  const t = tasks.find(t => t.id === taskId);
+  if(!t || t.status !== 'paused') return;
+  const robot = ROBOTS.find(r => r.id === t.robotId);
+  if(!robot) return;
+  t.status = 'running';
+  robot.status = 'moving';
+  robot.path = robot._pausedPath || [];
+  robot.pathIdx = robot._pausedPathIdx || 1;
+  robot._pausedPath = null;
+  robot._pausedPathIdx = null;
+  updateRobotCard(robot);
+  addLog(`${currentLang==='zh'?'任务已继续':'Task resumed'}: ${taskId}`);
+  renderTaskList(); updateStats();
+}
+
+// ─────────────────────────────────────────────
+// AUTO DEMO
+// ─────────────────────────────────────────────
+let autoDemoActive = false;
+let autoDemoTimer = null;
+
+function toggleAutoDemo() {
+  autoDemoActive = !autoDemoActive;
+  const btn = document.getElementById('btn-auto-demo');
+  const lbl = document.getElementById('auto-demo-label');
+  if(autoDemoActive) {
+    btn.classList.add('active');
+    lbl.textContent = currentLang==='zh' ? '演示运行中...' : 'DEMO RUNNING...';
+    scheduleAutoDemo();
+    addLog(currentLang==='zh'?'随机任务演示已启动':'Auto demo started');
+  } else {
+    btn.classList.remove('active');
+    lbl.textContent = currentLang==='zh' ? '随机任务演示' : 'AUTO DEMO';
+    if(autoDemoTimer) { clearTimeout(autoDemoTimer); autoDemoTimer = null; }
+    addLog(currentLang==='zh'?'随机任务演示已暂停':'Auto demo paused');
+  }
+}
+
+function scheduleAutoDemo() {
+  if(!autoDemoActive) return;
+  autoDemoTimer = setTimeout(() => {
+    if(!autoDemoActive) return;
+    autoDispatchRandom();
+    scheduleAutoDemo();
+  }, 2000);
+}
+
+function autoDispatchRandom() {
+  // Find idle robots
+  const idleRobots = ROBOTS.filter(r => r.status === 'idle' && r.battery > 10);
+  if(idleRobots.length === 0) return;
+  const robot = idleRobots[Math.floor(Math.random() * idleRobots.length)];
+  // Pick a random node that's not the current one
+  const otherNodes = NODES.filter(n => n.id !== robot.nodeId);
+  if(otherNodes.length === 0) return;
+  const targetNode = otherNodes[Math.floor(Math.random() * otherNodes.length)];
+  dispatchTask(robot.id, targetNode.id, false);
+}
+
+function cancelTask(taskId) {
+  const t = tasks.find(t => t.id === taskId);
+  if(!t || t.status === 'done' || t.status === 'cancelled') return;
+  t.status = 'cancelled'; t.progress = 0;
+  const robot = ROBOTS.find(r => r.id === t.robotId);
+  if(robot) {
+    // Find nearest node and SNAP robot to its pixel coords
+    // so next dispatch always starts from a real node position
+    let nearestNode = NODES[0], minDist = Infinity;
+    NODES.forEach(n => { const d = Math.hypot(n.x - robot.x, n.y - robot.y); if(d < minDist) { minDist = d; nearestNode = n; } });
+    robot.path = []; robot.pathIdx = 0; robot.status = 'idle'; robot.task = null;
+    robot.nodeId = nearestNode.id;
+    robot.x = nearestNode.x; robot.y = nearestNode.y;
+    robot.targetX = nearestNode.x; robot.targetY = nearestNode.y;
+    updateRobotCard(robot);
+  }
+  addLog(`${currentLang==='zh'?'任务已取消':'Task cancelled'}: ${taskId}`);
+  renderTaskList(); updateStats();
+}
+
+function renderTaskList() {
+  const container=document.getElementById('task-list');
+  if(tasks.length===0){ container.innerHTML=`<div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);text-align:center;padding:20px;">${currentLang==='zh'?'暂无任务':'NO TASKS'}</div>`; return; }
+  container.innerHTML=tasks.slice(0,20).map(t=>taskItemHTML(t)).join('');
+  document.getElementById('task-count').textContent=tasks.filter(t=>t.status!=='done'&&t.status!=='cancelled').length;
+}
+
+function renderTaskItem(t) {
+  // Update progress bar in-place to avoid destroying button onclick handlers
+  const el = document.getElementById('ti-' + t.id);
+  if(!el) { renderTaskList(); return; }
+  // Update progress fill width only
+  const fill = el.querySelector('.ti-progress-fill');
+  if(fill) fill.style.width = (t.progress || 0) + '%';
+}
+
+function taskItemHTML(t) {
+  const priColor={normal:'var(--text-muted)',high:'#ffcc00',urgent:'var(--warn)'}[t.priority];
+  const isActive = (t.status === 'running');
+  const isPaused = (t.status === 'paused');
+  const showCancel = (isActive || isPaused);
+  const cancelBtn = showCancel ? `<button class="ti-cancel-btn" onclick="event.stopPropagation();cancelTask('${t.id}')" title="取消任务">✕</button>` : '';
+  const pauseBtn = isActive ? `<button class="ti-pause-btn" onclick="event.stopPropagation();pauseTask('${t.id}')" title="暂停任务">⏸</button>` : '';
+  const resumeBtn = isPaused ? `<button class="ti-pause-btn resume" onclick="event.stopPropagation();resumeTask('${t.id}')" title="继续任务">▶</button>` : '';
+  const fillClass = t.status === 'done' ? 'done' : t.status === 'cancelled' ? 'cancelled' : t.status === 'paused' ? 'paused' : '';
+  return `<div class="task-item ${t.status}" id="ti-${t.id}">
+    <div class="ti-head"><div class="ti-id">${t.id} · <span style="color:${priColor}">${t.priority.toUpperCase()}</span></div><div style="display:flex;align-items:center;gap:4px;">${resumeBtn}${pauseBtn}${cancelBtn}<div class="ti-status ${t.status}">${t.status.toUpperCase()}</div></div></div>
+    <div class="ti-desc">${t.robotId}: [${t.from}]→[${t.to}]</div>
+    <div class="ti-progress"><div class="ti-progress-fill ${fillClass}" style="width:${t.progress||0}%"></div></div>
+  </div>`;
+}
+
+function updateStats() {
+  document.getElementById('stat-online').textContent=ROBOTS.length;
+  document.getElementById('stat-moving').textContent=ROBOTS.filter(r=>r.status==='moving' || r.status==='waiting').length;
+  document.getElementById('stat-tasks').textContent=tasks.filter(t=>t.status==='running').length;
+  document.getElementById('stat-errors').textContent=ROBOTS.filter(r=>r.status==='error').length;
+}
+
+setInterval(()=>{ ROBOTS.forEach(r=>updateRobotCard(r)); updateStats(); }, 500);
+
+const logs=[];
+function addLog(msg) {
+  const time=new Date().toLocaleTimeString('zh-CN',{hour12:false});
+  logs.unshift(`[${time}] ${msg}`); if(logs.length>20) logs.pop();
+  document.getElementById('alert-text').textContent=logs.join(' · ');
+}
+
+setInterval(()=>document.getElementById('sys-time').textContent=new Date().toLocaleTimeString('zh-CN',{hour12:false}), 1000);
+
+buildRobotList(); buildSelects(); updateStats(); addLog('系统初始化完成 · 车辆已上线 · 等待调度指令');
+</script>
+</body>
+</html>
